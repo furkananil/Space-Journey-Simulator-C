@@ -26,17 +26,19 @@ typedef struct UzayAraci {
     int kapasite;
 
     void (*YolcuEkle)(struct UzayAraci* a, Kisi* k);
-    void (*SaatIlerle)(struct UzayAraci* a);
+    void (*SaatIlerle)(struct UzayAraci* a, Gezegen** gezegenler, int gezegenSayisi);
     void (*DurumGuncelle)(struct UzayAraci* a);
     bool (*BosMu)(struct UzayAraci* a);
     void (*YokEt)(struct UzayAraci* a);
+    void (*UzayAraciVarisKontrol)(struct UzayAraci* a, Gezegen** gezegenler, int gezegenSayisi);
 } UzayAraci;
 
 UzayAraci* UzayAraciOlustur(char* ad, char* cikis, char* varis, Zaman* cikisTarihi, int kalanSaat);
 void UzayAraciYolcuEkle(UzayAraci* a, Kisi* k);
-void UzayAraciSaatIlerle(UzayAraci* a);
+void UzayAraciSaatIlerle(UzayAraci* a, Gezegen** gezegenler, int gezegenSayisi);
 void UzayAraciDurumGuncelle(UzayAraci* a);
 bool UzayAraciBosMu(UzayAraci* a);
 void UzayAraciYokEt(UzayAraci* a);
+void UzayAraciVarisKontrol(UzayAraci* a, Gezegen** gezegenler, int gezegenSayisi);
 
 #endif

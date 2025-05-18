@@ -48,7 +48,7 @@ void ZamanIlerle(Zaman* z, int saatArtis, int gunSaatSayisi) {
 }
 
 void ZamanToString(Zaman* z, char* buffer) {
-    sprintf(buffer, "%02d.%02d.%04d %02d:00", z->gun, z->ay, z->yil, z->saat);
+    sprintf(buffer, "%02d.%02d.%04d", z->gun, z->ay, z->yil);
 }
 
 void ZamanYokEt(Zaman* z) {
@@ -64,5 +64,16 @@ int ZamanKarsilastir(Zaman* z1, Zaman* z2) {
     return 0;
 }
 
-
+Zaman* ZamanKopyala(Zaman* z) {
+    if (!z) return NULL;
+    Zaman* yeni = (Zaman*)malloc(sizeof(Zaman));
+    yeni->saat = z->saat;
+    yeni->gun = z->gun;
+    yeni->ay = z->ay;
+    yeni->yil = z->yil;
+    yeni->ZamanIlerle = z->ZamanIlerle;
+    yeni->ZamanToString = z->ZamanToString;
+    yeni->ZamanYokEt = z->ZamanYokEt;
+    return yeni;
+}
 

@@ -65,7 +65,14 @@ void GezegenYazdirTarih(Gezegen* g, char* hedefBuffer, int bufferSize) {
         g->tarih->gun, g->tarih->ay, g->tarih->yil, g->tarih->saat);
 }
 
-
+Gezegen* GezegenBul(Gezegen** gezegenler, int gezegenSayisi, const char* ad) {
+    for (int i = 0; i < gezegenSayisi; i++) {
+        if (gezegenler[i] && gezegenler[i]->ad && strcmp(gezegenler[i]->ad, ad) == 0) {
+            return gezegenler[i];
+        }
+    }
+    return NULL;
+}
 
 
 

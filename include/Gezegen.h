@@ -32,5 +32,5 @@ void GezegenZamanIlerle(Gezegen* g, int saat);
 void GezegenNufusSifirla(Gezegen* g);
 void GezegenNufusArttir(Gezegen* g);
 void GezegenYazdirTarih(Gezegen* g, char* hedefBuffer, int bufferSize);
-
+Gezegen* GezegenBul(Gezegen** gezegenler, int gezegenSayisi, const char* ad);
 #endif

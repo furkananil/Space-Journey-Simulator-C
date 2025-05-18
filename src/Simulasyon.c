@@ -8,8 +8,6 @@
 #include <unistd.h>
 #endif
 
-// Yardımcı fonksiyonlar (ekran temizleme, gezegen bulma vb.)
-
 void ekranTemizle() {
     #ifdef _WIN32
         system("cls");
@@ -18,139 +16,126 @@ void ekranTemizle() {
     #endif
 }
 
-Gezegen* GezegenBul(Gezegen** gezegenler, int gezegenSayisi, const char* ad) {
-    for (int i = 0; i < gezegenSayisi; i++) {
-        if (gezegenler[i] && gezegenler[i]->ad && strcmp(gezegenler[i]->ad, ad) == 0) {
-            return gezegenler[i];
-        }
-    }
-    return NULL;
-}
-
-void UzayAraciVarisKontrol(UzayAraci* a, Gezegen** gezegenler, int gezegenSayisi) {
-    if (!a || a->vardi || a->imha || !a->varisTarihi) return;
-    Gezegen* varisGezegeni = GezegenBul(gezegenler, gezegenSayisi, a->varis);
-    if (!varisGezegeni || !varisGezegeni->tarih) return;
-    if (ZamanKarsilastir(varisGezegeni->tarih, a->varisTarihi) >= 0) {
-        a->vardi = 1;
-        a->kalanSaat = 0;
-        // DEBUG
-        printf("[DEBUG] %s aracı %s gezegenine vardı.\n", a->ad, a->varis);
-    }
-}
-
-// Yardımcı fonksiyonlar (tarih işlemleri, nüfus güncelleme vb.)
-
 void UzayAraciVarisTarihiHesapla(UzayAraci* arac, Gezegen** gezegenler, int gezegenSayisi) {
     if (!arac || !arac->kalkti || arac->varisTarihi != NULL) return;
 
     Gezegen* varisGezegeni = GezegenBul(gezegenler, gezegenSayisi, arac->varis);
     if (!varisGezegeni || !varisGezegeni->tarih) return;
 
-    // Varış tarihini hesapla
-    arac->varisTarihi = ZamanOlustur(
-        varisGezegeni->tarih->gun,
-        varisGezegeni->tarih->ay,
-        varisGezegeni->tarih->yil
-    );
-    if (arac->varisTarihi) {
-        ZamanIlerle(arac->varisTarihi, arac->kalanSaat, varisGezegeni->gunSaatSayisi);
-    }
+    arac->varisTarihi = ZamanKopyala(varisGezegeni->tarih);
+    ZamanIlerle(arac->varisTarihi, arac->kalanSaat, varisGezegeni->gunSaatSayisi);
 }
-
 
 void GezegenNufusGuncelle(Gezegen** gezegenler, int gezegenSayisi, UzayAraci** araclar, int aracSayisi) {
     for (int i = 0; i < gezegenSayisi; i++) {
         Gezegen* g = gezegenler[i];
         if (!g || !g->GezegenNufusSifirla || !g->GezegenNufusArttir) continue;
-        g->GezegenNufusSifirla(g); // Önce sıfırla
-        for (int j = 0; j < aracSayisi; j++) {
-            UzayAraci* a = araclar[j];
-            if (!a || !a->vardi || !a->varis || !g->ad) continue;
-            if (strcmp(a->varis, g->ad) != 0) continue;
-            for (int k = 0; k < a->yolcuSayisi; k++) {
-                if (!a->yolcular) continue;
-                Kisi* yolcu = a->yolcular[k];
-                printf("[DEBUG] Kontrol: %s aracı, %s gezegeni, yolcu %p\n", a->ad, g->ad, (void*)yolcu);
-                if (yolcu) {
-                    printf("[DEBUG] Yolcu hayatta mı? %d\n", KisiHayattaMi(yolcu));
-                    if (KisiHayattaMi(yolcu)) {
-                        printf("[DEBUG] %s gezegenine %s aracı ile yolcu eklendi.\n", g->ad, a->ad);
-                        g->GezegenNufusArttir(g);
-                    }
-                }
+        g->GezegenNufusSifirla(g);
+    }
+
+    for (int j = 0; j < aracSayisi; j++) {
+        UzayAraci* a = araclar[j];
+        if (!a || a->imha) continue;
+
+        const char* aktifGezegen = NULL;
+        if (!a->kalkti) {
+            aktifGezegen = a->cikis;
+        } else if (a->vardi) {
+            aktifGezegen = a->varis;
+        }
+        if (!aktifGezegen) continue;
+
+        Gezegen* g = GezegenBul(gezegenler, gezegenSayisi, aktifGezegen);
+        if (!g) continue;
+
+        for (int k = 0; k < a->yolcuSayisi; k++) {
+            if (!a->yolcular[k]) continue;
+            if (KisiHayattaMi(a->yolcular[k])) {
+                g->GezegenNufusArttir(g);
             }
         }
     }
 }
 
-// Simülasyon durumunu yazdırma fonksiyonu
 void simulasyonDurumunuYazdir(Gezegen** gezegenler, int gezegenSayisi, UzayAraci** araclar, int aracSayisi, int saatSayaci) {
     ekranTemizle();
-    printf("Simülasyon Saati: %d\n\n", saatSayaci);
-
+    printf("Simulasyon Saati: %d\n\n", saatSayaci);
     printf("Gezegenler:\n");
+    // Gezegen başlıkları
+    printf("%-17s", "");
     for (int i = 0; i < gezegenSayisi; i++) {
-        if (gezegenler[i]) {
-            char buf[64];
-            ZamanToString(gezegenler[i]->tarih, buf);
-            printf("%-10s - %s   Nüfus: %d\n", gezegenler[i]->ad, buf, gezegenler[i]->nufus);
-        }
+        printf("--- %s ---           ", gezegenler[i]->ad);
     }
+    printf("\n");
 
-    printf("\nUzay Araçları:\n");
+    // Gezegen tarihleri
+    printf("%-17s", "Tarih");
+    for (int i = 0; i < gezegenSayisi; i++) {
+        char buf[32] = "--";
+        if (gezegenler[i]->tarih)
+            ZamanToString(gezegenler[i]->tarih, buf);
+        printf("%-20s", buf);
+    }
+    printf("\n");
+
+    // Gezegen nüfusları
+    printf("%-17s", "Nufus");
+    for (int i = 0; i < gezegenSayisi; i++) {
+        printf("%-20d", gezegenler[i]->nufus);
+    }
+    printf("\n\n");
+
+    // Uzay araçları başlık
+    printf("Uzay Araclari:\n");
+    printf("%-18s %-12s %-10s %-12s %-22s %-25s\n",
+           "Arac Adi", "Durum", "Cikis", "Varis", "Hedefe Kalan Saat", "Hedefe Varacagi Tarih");
+
+    // Uzay araçları bilgileri 
     for (int i = 0; i < aracSayisi; i++) {
         UzayAraci* a = araclar[i];
         if (!a) continue;
-        char varisTarihi[64] = "--";
-        if (a->varisTarihi) { // Sadece vardi değil, varisTarihi varsa yaz
-            ZamanToString(a->varisTarihi, varisTarihi);
-        }
         const char* durum = a->imha ? "IMHA" : (a->vardi ? "Vardi" : (a->kalkti ? "Yolda" : "Bekliyor"));
-        printf("%-10s %-8s Cikis: %s   Varis: %s   Kalan: %d   Varis Tarihi: %s\n",
-               a->ad, durum, a->cikis, a->varis,
-               a->imha ? -1 : a->kalanSaat, varisTarihi);
+
+        char kalan_saat_buffer[10] = "--";
+        char varis_tarih[32] = "--";
+        if (!a->imha && a->kalkti) {
+            sprintf(kalan_saat_buffer, "%d", a->kalanSaat);
+            if (a->varisTarihi)
+                ZamanToString(a->varisTarihi, varis_tarih);
+        }
+
+        printf("%-18s %-12s %-10s %-12s %-22s %-25s\n",
+               a->ad, durum, a->cikis, a->varis, kalan_saat_buffer, varis_tarih);
     }
 }
 
-// Simülasyonun bitip bitmediğini kontrol et
 int simulasyonBittiMi(UzayAraci** araclar, int aracSayisi) {
     for (int i = 0; i < aracSayisi; i++) {
         if (araclar[i] && !araclar[i]->vardi && !araclar[i]->imha) {
-            return 0; // Simülasyon bitmedi
+            return 0;
         }
     }
-    return 1; // Simülasyon bitti
+    return 1;
 }
 
-// Ana simülasyon fonksiyonu
 void SimulasyonBaslat(Kisi** kisiler, int kisiSayisi,
                      UzayAraci** araclar, int aracSayisi,
                      Gezegen** gezegenler, int gezegenSayisi) {
     int saatSayaci = 0;
     int tamamlandi = 0;
 
-    // Kişileri araçlara ekle
     for (int i = 0; i < kisiSayisi; i++) {
         Kisi* k = kisiler[i];
         for (int j = 0; j < aracSayisi; j++) {
             UzayAraci* a = araclar[j];
             if (a && k && a->ad && k->uzayAraci && strcmp(k->uzayAraci, a->ad) == 0) {
                 a->YolcuEkle(a, k);
+                break;
             }
         }
     }
 
-    // Başlangıçta varış tarihlerini hesapla (sadece kalkış yapmış araçlar için)
-    for (int i = 0; i < aracSayisi; i++) {
-        UzayAraci* a = araclar[i];
-        if (a && a->kalkti) {
-            UzayAraciVarisTarihiHesapla(a, gezegenler, gezegenSayisi);
-        }
-    }
-
     while (!tamamlandi) {
-        // Kalkış kontrolü
         for (int i = 0; i < aracSayisi; i++) {
             UzayAraci* a = araclar[i];
             if (a && !a->kalkti) {
@@ -165,35 +150,42 @@ void SimulasyonBaslat(Kisi** kisiler, int kisiSayisi,
             }
         }
 
-        // Zaman ilerletme
         for (int i = 0; i < gezegenSayisi; i++) {
             if (gezegenler[i] && gezegenler[i]->tarih) {
                 ZamanIlerle(gezegenler[i]->tarih, 1, gezegenler[i]->gunSaatSayisi);
             }
         }
 
-        // Nüfus güncelleme
         GezegenNufusGuncelle(gezegenler, gezegenSayisi, araclar, aracSayisi);
 
-        // Araç işlemleri ve varış tarihi hesaplama
+        
         for (int i = 0; i < aracSayisi; i++) {
-    UzayAraci* a = araclar[i];
-    if (!a) continue;
+            UzayAraci* a = araclar[i];
+            if (!a) continue;
 
-    if (a->kalkti && !a->vardi && !a->imha) {
-        a->SaatIlerle(a);
-        UzayAraciVarisTarihiHesapla(a, gezegenler, gezegenSayisi);
-        UzayAraciVarisKontrol(a, gezegenler, gezegenSayisi); // <-- buraya ekle
-        UzayAraciDurumGuncelle(a);
-    }
+            
+            for (int k = 0; k < a->yolcuSayisi; ) {
+                Kisi* yolcu = a->yolcular[k];
+                if (!KisiHayattaMi(yolcu)) {
+                    for (int j = k; j < a->yolcuSayisi - 1; j++) {
+                        a->yolcular[j] = a->yolcular[j + 1];
+                    }
+                    a->yolcuSayisi--;
+                } else {
+                    k++;
+                }
+            }
+            a->SaatIlerle(a, gezegenler, gezegenSayisi);
+            if (a->kalkti && !a->vardi && !a->imha) {
 
-    a->DurumGuncelle(a);
-}
+                UzayAraciVarisTarihiHesapla(a, gezegenler, gezegenSayisi);
+                UzayAraciVarisKontrol(a, gezegenler, gezegenSayisi);
+                UzayAraciDurumGuncelle(a);
+            }
+            a->DurumGuncelle(a);
+        }
 
-        // Ekran yazdırma
         simulasyonDurumunuYazdir(gezegenler, gezegenSayisi, araclar, aracSayisi, saatSayaci);
-
-        // Bitiş kontrolü
         tamamlandi = simulasyonBittiMi(araclar, aracSayisi);
 
         saatSayaci++;
@@ -204,7 +196,6 @@ void SimulasyonBaslat(Kisi** kisiler, int kisiSayisi,
         #endif
     }
 
-    // Döngü bittiğinde
     GezegenNufusGuncelle(gezegenler, gezegenSayisi, araclar, aracSayisi);
     simulasyonDurumunuYazdir(gezegenler, gezegenSayisi, araclar, aracSayisi, saatSayaci);
     printf("\nSimülasyon tamamlandı. Toplam süre: %d saat.\n", saatSayaci);
